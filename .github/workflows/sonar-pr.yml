@@ -4,6 +4,9 @@ on:
   pull_request:
     branches:
       - main
+  push:
+    branches:
+      - main
 
 jobs:
   sonar:
@@ -38,17 +41,14 @@ jobs:
       - name: Build and run tests with coverage
         run: ./gradlew test jacocoTestReport --no-daemon
 
-      - name: Run SonarQube analysis
+      - name: Run SonarCloud analysis
+        uses: sonarsource/sonarcloud-github-action@v3
         env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
-        run: |
-          ./gradlew sonar --no-daemon \
-            -Dsonar.projectKey=servico-revenda-veiculos-pagamentos \
-            -Dsonar.projectName="Serviço Revenda Veículos - Pagamentos" \
-            -Dsonar.host.url=$SONAR_HOST_URL \
-            -Dsonar.token=$SONAR_TOKEN \
-            -Dsonar.coverage.jacoco.xmlReportPaths=build/reports/jacoco/test/jacocoTestReport.xml \
-            -Dsonar.pullrequest.key=${{ github.event.pull_request.number }} \
-            -Dsonar.pullrequest.branch=${{ github.head_ref }} \
-            -Dsonar.pullrequest.base=${{ github.base_ref }}
+        with:
+          args: >
+            -Dsonar.projectKey=servico-revenda-veiculos-pagamentos
+            -Dsonar.organization=${{ secrets.SONAR_ORGANIZATION }}
+            -Dsonar.java.binaries=build/classes/java/main
+            -Dsonar.coverage.jacoco.xmlReportPaths=build/reports/jacoco/test/jacocoTestReport.xml
