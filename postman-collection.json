@@ -1,0 +1,315 @@
+{
+  "info": {
+    "name": "Serviço de Pagamentos - Revendas",
+    "_postman_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "description": "Collection para o serviço de pagamentos de veículos (porta 8081).\n\nFluxo completo:\n1. Efetuar Venda → guarda o codigoPagamento retornado\n2. Webhook Aprovado → pagamento confirmado, veículo marcado como VENDIDO\n3. Listar Vendidos → conferir listagem ordenada por preço\n\nPara cancelamento, use o Webhook Cancelado no lugar do Aprovado.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8081",
+      "type": "string"
+    },
+    {
+      "key": "codigoPagamento",
+      "value": "",
+      "type": "string",
+      "description": "Preenchido automaticamente após Efetuar Venda"
+    }
+  ],
+  "item": [
+    {
+      "name": "Vendas",
+      "item": [
+        {
+          "name": "Efetuar Venda",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const body = pm.response.json();",
+                  "    pm.collectionVariables.set('codigoPagamento', body.codigoPagamento);",
+                  "    pm.test('Status 201 Created', () => pm.response.to.have.status(201));",
+                  "    pm.test('codigoPagamento gerado', () => pm.expect(body.codigoPagamento).to.be.a('string').and.not.empty);",
+                  "    pm.test('statusPagamento é PENDENTE', () => pm.expect(body.statusPagamento).to.eql('PENDENTE'));",
+                  "    console.log('codigoPagamento salvo:', body.codigoPagamento);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"veiculoId\": 1,\n  \"cpfComprador\": \"529.982.247-25\",\n  \"dataVenda\": \"2026-03-14\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/vendas",
+              "host": ["{{baseUrl}}"],
+              "path": ["vendas"]
+            },
+            "description": "Efetua a venda de um veículo disponível.\n\nRequisitos:\n- O veículo deve existir no serviço de listagem (porta 8080) com status DISPONIVEL\n- CPF deve ser válido\n- dataVenda no formato YYYY-MM-DD\n\nO campo `codigoPagamento` retornado é salvo automaticamente na variável da collection para uso no webhook."
+          },
+          "response": [
+            {
+              "name": "201 Created - Venda efetuada",
+              "originalRequest": {
+                "method": "POST",
+                "header": [{"key": "Content-Type", "value": "application/json"}],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"veiculoId\": 1,\n  \"cpfComprador\": \"529.982.247-25\",\n  \"dataVenda\": \"2026-03-14\"\n}"
+                },
+                "url": {"raw": "{{baseUrl}}/vendas", "host": ["{{baseUrl}}"], "path": ["vendas"]}
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"id\": 1,\n  \"veiculoId\": 1,\n  \"marcaVeiculo\": \"Toyota\",\n  \"modeloVeiculo\": \"Corolla\",\n  \"anoVeiculo\": 2023,\n  \"precoVeiculo\": 120000.00,\n  \"cpfComprador\": \"529.982.247-25\",\n  \"dataVenda\": \"2026-03-14\",\n  \"codigoPagamento\": \"550e8400-e29b-41d4-a716-446655440000\",\n  \"statusPagamento\": \"PENDENTE\"\n}"
+            },
+            {
+              "name": "409 Conflict - Veículo não disponível",
+              "originalRequest": {
+                "method": "POST",
+                "header": [{"key": "Content-Type", "value": "application/json"}],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"veiculoId\": 1,\n  \"cpfComprador\": \"529.982.247-25\",\n  \"dataVenda\": \"2026-03-14\"\n}"
+                },
+                "url": {"raw": "{{baseUrl}}/vendas", "host": ["{{baseUrl}}"], "path": ["vendas"]}
+              },
+              "status": "Conflict",
+              "code": 409,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"timestamp\": \"2026-03-14T15:00:00\",\n  \"status\": 409,\n  \"erro\": \"Conflict\",\n  \"mensagem\": \"Veículo com id 1 não está disponível para venda.\"\n}"
+            },
+            {
+              "name": "404 Not Found - Veículo não existe",
+              "originalRequest": {
+                "method": "POST",
+                "header": [{"key": "Content-Type", "value": "application/json"}],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"veiculoId\": 999,\n  \"cpfComprador\": \"529.982.247-25\",\n  \"dataVenda\": \"2026-03-14\"\n}"
+                },
+                "url": {"raw": "{{baseUrl}}/vendas", "host": ["{{baseUrl}}"], "path": ["vendas"]}
+              },
+              "status": "Not Found",
+              "code": 404,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"timestamp\": \"2026-03-14T15:00:00\",\n  \"status\": 404,\n  \"erro\": \"Not Found\",\n  \"mensagem\": \"Veículo não encontrado no serviço de listagem.\"\n}"
+            },
+            {
+              "name": "400 Bad Request - Dados inválidos",
+              "originalRequest": {
+                "method": "POST",
+                "header": [{"key": "Content-Type", "value": "application/json"}],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"veiculoId\": null,\n  \"cpfComprador\": \"\",\n  \"dataVenda\": null\n}"
+                },
+                "url": {"raw": "{{baseUrl}}/vendas", "host": ["{{baseUrl}}"], "path": ["vendas"]}
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"timestamp\": \"2026-03-14T15:00:00\",\n  \"status\": 400,\n  \"erro\": \"Bad Request\",\n  \"mensagem\": \"veiculoId: veiculoId é obrigatório, cpfComprador: cpfComprador é obrigatório, dataVenda: dataVenda é obrigatória\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Webhook - Pagamento Aprovado",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('statusPagamento é APROVADO', () => pm.expect(body.statusPagamento).to.eql('APROVADO'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"codigoPagamento\": \"{{codigoPagamento}}\",\n  \"status\": \"APROVADO\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/vendas/webhook",
+              "host": ["{{baseUrl}}"],
+              "path": ["vendas", "webhook"]
+            },
+            "description": "Webhook chamado pelo processador de pagamento para confirmar o pagamento.\n\nAo receber APROVADO:\n- statusPagamento da venda → APROVADO\n- status do veículo no serviço de listagem → VENDIDO\n\nUsa a variável {{codigoPagamento}} salva automaticamente pelo request 'Efetuar Venda'."
+          },
+          "response": [
+            {
+              "name": "200 OK - Pagamento aprovado",
+              "originalRequest": {
+                "method": "POST",
+                "header": [{"key": "Content-Type", "value": "application/json"}],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"codigoPagamento\": \"550e8400-e29b-41d4-a716-446655440000\",\n  \"status\": \"APROVADO\"\n}"
+                },
+                "url": {"raw": "{{baseUrl}}/vendas/webhook", "host": ["{{baseUrl}}"], "path": ["vendas", "webhook"]}
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"id\": 1,\n  \"veiculoId\": 1,\n  \"marcaVeiculo\": \"Toyota\",\n  \"modeloVeiculo\": \"Corolla\",\n  \"anoVeiculo\": 2023,\n  \"precoVeiculo\": 120000.00,\n  \"cpfComprador\": \"529.982.247-25\",\n  \"dataVenda\": \"2026-03-14\",\n  \"codigoPagamento\": \"550e8400-e29b-41d4-a716-446655440000\",\n  \"statusPagamento\": \"APROVADO\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Webhook - Pagamento Cancelado",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('statusPagamento é CANCELADO', () => pm.expect(body.statusPagamento).to.eql('CANCELADO'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"codigoPagamento\": \"{{codigoPagamento}}\",\n  \"status\": \"CANCELADO\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/vendas/webhook",
+              "host": ["{{baseUrl}}"],
+              "path": ["vendas", "webhook"]
+            },
+            "description": "Webhook para cancelamento do pagamento.\n\nAo receber CANCELADO:\n- statusPagamento da venda → CANCELADO\n- status do veículo no serviço de listagem → DISPONIVEL (veículo volta ao estoque)"
+          },
+          "response": [
+            {
+              "name": "200 OK - Pagamento cancelado",
+              "originalRequest": {
+                "method": "POST",
+                "header": [{"key": "Content-Type", "value": "application/json"}],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"codigoPagamento\": \"550e8400-e29b-41d4-a716-446655440000\",\n  \"status\": \"CANCELADO\"\n}"
+                },
+                "url": {"raw": "{{baseUrl}}/vendas/webhook", "host": ["{{baseUrl}}"], "path": ["vendas", "webhook"]}
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"id\": 1,\n  \"veiculoId\": 1,\n  \"marcaVeiculo\": \"Toyota\",\n  \"modeloVeiculo\": \"Corolla\",\n  \"anoVeiculo\": 2023,\n  \"precoVeiculo\": 120000.00,\n  \"cpfComprador\": \"529.982.247-25\",\n  \"dataVenda\": \"2026-03-14\",\n  \"codigoPagamento\": \"550e8400-e29b-41d4-a716-446655440000\",\n  \"statusPagamento\": \"CANCELADO\"\n}"
+            },
+            {
+              "name": "404 Not Found - Código de pagamento inexistente",
+              "originalRequest": {
+                "method": "POST",
+                "header": [{"key": "Content-Type", "value": "application/json"}],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"codigoPagamento\": \"codigo-inexistente\",\n  \"status\": \"APROVADO\"\n}"
+                },
+                "url": {"raw": "{{baseUrl}}/vendas/webhook", "host": ["{{baseUrl}}"], "path": ["vendas", "webhook"]}
+              },
+              "status": "Not Found",
+              "code": 404,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"timestamp\": \"2026-03-14T15:00:00\",\n  \"status\": 404,\n  \"erro\": \"Not Found\",\n  \"mensagem\": \"Venda não encontrada para o código de pagamento: codigo-inexistente\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Listar Veículos Vendidos",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Retorna array', () => pm.expect(body).to.be.an('array'));",
+                  "if (body.length > 1) {",
+                  "    pm.test('Ordenado por preço ASC', () => {",
+                  "        for (let i = 0; i < body.length - 1; i++) {",
+                  "            pm.expect(body[i].precoVeiculo).to.be.at.most(body[i+1].precoVeiculo);",
+                  "        }",
+                  "    });",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/vendas/vendidos",
+              "host": ["{{baseUrl}}"],
+              "path": ["vendas", "vendidos"]
+            },
+            "description": "Lista todos os veículos vendidos (pagamento APROVADO), ordenados por preço do mais barato para o mais caro."
+          },
+          "response": [
+            {
+              "name": "200 OK - Lista de vendidos",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {"raw": "{{baseUrl}}/vendas/vendidos", "host": ["{{baseUrl}}"], "path": ["vendas", "vendidos"]}
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "[\n  {\n    \"id\": 1,\n    \"veiculoId\": 2,\n    \"marcaVeiculo\": \"Fiat\",\n    \"modeloVeiculo\": \"Argo\",\n    \"anoVeiculo\": 2022,\n    \"precoVeiculo\": 75000.00,\n    \"cpfComprador\": \"123.456.789-09\",\n    \"dataVenda\": \"2026-03-10\",\n    \"codigoPagamento\": \"aabb1122-e29b-41d4-a716-446655440000\",\n    \"statusPagamento\": \"APROVADO\"\n  },\n  {\n    \"id\": 2,\n    \"veiculoId\": 1,\n    \"marcaVeiculo\": \"Toyota\",\n    \"modeloVeiculo\": \"Corolla\",\n    \"anoVeiculo\": 2023,\n    \"precoVeiculo\": 120000.00,\n    \"cpfComprador\": \"529.982.247-25\",\n    \"dataVenda\": \"2026-03-14\",\n    \"codigoPagamento\": \"550e8400-e29b-41d4-a716-446655440000\",\n    \"statusPagamento\": \"APROVADO\"\n  }\n]"
+            },
+            {
+              "name": "200 OK - Lista vazia",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {"raw": "{{baseUrl}}/vendas/vendidos", "host": ["{{baseUrl}}"], "path": ["vendas", "vendidos"]}
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "[]"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
