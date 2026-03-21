@@ -1,0 +1,44 @@
+{
+  "family": "servico-pagamentos",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "256",
+  "memory": "512",
+  "executionRoleArn": "arn:aws:iam::557187971532:role/ecsTaskExecutionRole",
+  "containerDefinitions": [
+    {
+      "name": "pagamentos",
+      "image": "557187971532.dkr.ecr.us-east-1.amazonaws.com/servico-revenda-veiculos-pagamentos:latest",
+      "essential": true,
+      "portMappings": [
+        {
+          "containerPort": 8081,
+          "hostPort": 8081,
+          "protocol": "tcp"
+        }
+      ],
+      "environment": [
+        {
+          "name": "SPRING_PROFILES_ACTIVE",
+          "value": "prod"
+        },
+        {
+          "name": "SERVER_PORT",
+          "value": "8081"
+        },
+        {
+          "name": "LISTAGEM_SERVICE_URL",
+          "value": "http://servico-listagem-service:8080"
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/servico-pagamentos",
+          "awslogs-region": "us-east-1",
+          "awslogs-stream-prefix": "ecs"
+        }
+      }
+    }
+  ]
+}
