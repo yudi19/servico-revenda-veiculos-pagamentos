@@ -34,6 +34,7 @@ public class VeiculoHttpAdapter implements VeiculoServicePort {
         );
     }
 
+
     @Override
     public void atualizarStatusVeiculo(Long veiculoId, String novoStatus) {
         String url = listagemServiceUrl + "/veiculos/" + veiculoId;
